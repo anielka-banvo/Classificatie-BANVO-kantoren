@@ -47,6 +47,7 @@ tr:last-child td{border-bottom:none}
 .badge-warn{background:#fff8e1;color:#7a5a00;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
 .filter-oranje.active{background:var(--oranje-bg)!important;color:var(--oranje-text)!important;border-color:#e0965a!important}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 </head>
 <body>
 <div class="topbar">
@@ -75,6 +76,7 @@ tr:last-child td{border-bottom:none}
     <div class="tab active" onclick="switchTab('kantoren')">Kantoren</div>
     <div class="tab" onclick="switchTab('log')">Wijzigingen log <span id="log-badge"></span></div>
     <div class="tab" onclick="switchTab('handleiding')">&#9432; Handleiding</div>
+    <div class="tab" onclick="switchTab('dashboard')">&#128200; Dashboard</div>
   </div>
 
   <div id="tab-kantoren">
@@ -99,6 +101,7 @@ tr:last-child td{border-bottom:none}
         <option value="high">30%+</option>
       </select>
       <button id="btn-oranje" onclick="toggleOranje()" style="font-family:'DM Sans',sans-serif;font-size:12px;padding:6px 14px;border-radius:20px;border:1px solid #e0965a;background:#fdebd4;color:#6b3000;cursor:pointer;font-weight:500">&#9650; Actie vereist</button>
+      <button onclick="openNieuwKantoor()" style="font-family:'DM Sans',sans-serif;font-size:12px;padding:6px 16px;border-radius:20px;border:1px solid #132252;background:#132252;color:#fff;cursor:pointer;font-weight:500;margin-left:auto">+ Nieuw kantoor</button>
     </div>
     <div class="legend">
       <span style="font-weight:500;color:var(--text)">Acties:</span>
@@ -123,6 +126,95 @@ tr:last-child td{border-bottom:none}
     </div>
   </div>
 
+
+
+  <!-- DASHBOARD TAB -->
+  <div id="tab-dashboard" style="display:none">
+
+    <!-- KPI row -->
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px" id="dash-kpi-row">
+      <div class="kpi"><div class="kpi-label">Kantoren totaal</div><div class="kpi-val" id="dk-total" style="color:#132252">—</div></div>
+      <div class="kpi"><div class="kpi-label">Gem. EBITDA</div><div class="kpi-val" id="dk-ebitda" style="color:#132252">—</div></div>
+      <div class="kpi"><div class="kpi-label">Actie vereist</div><div class="kpi-val" id="dk-oranje" style="color:#c9973a">—</div></div>
+      <div class="kpi"><div class="kpi-label">Onderpresteerders</div><div class="kpi-val" id="dk-under" style="color:#e05a3a">—</div></div>
+      <div class="kpi"><div class="kpi-label">Top kantoren (8-9)</div><div class="kpi-val" id="dk-top" style="color:#16a34a">—</div></div>
+      <div class="kpi"><div class="kpi-label">Negatieve EBITDA</div><div class="kpi-val" id="dk-neg" style="color:#e05a3a">—</div></div>
+    </div>
+
+    <!-- Row 1: EBITDA bar + Finance donut -->
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px">
+      <div style="background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#132252;margin-bottom:4px">EBITDA per kantoor</div>
+        <div style="font-size:11px;color:#7a8fa8;margin-bottom:14px">Gesorteerd hoog naar laag &mdash; groen boven 30%, rood negatief</div>
+        <div style="position:relative;height:280px"><canvas id="chart-ebitda"></canvas></div>
+      </div>
+      <div style="background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#132252;margin-bottom:4px">Finance classificatie</div>
+        <div style="font-size:11px;color:#7a8fa8;margin-bottom:14px">Verdeling over alle kantoren</div>
+        <div style="position:relative;height:280px"><canvas id="chart-finance-donut"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 2: IT + HRM + Acties -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+      <div style="background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#132252;margin-bottom:4px">IT classificatie</div>
+        <div style="font-size:11px;color:#7a8fa8;margin-bottom:14px">Aantal kantoren per niveau</div>
+        <div style="position:relative;height:220px"><canvas id="chart-it"></canvas></div>
+      </div>
+      <div style="background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#132252;margin-bottom:4px">HRM classificatie</div>
+        <div style="font-size:11px;color:#7a8fa8;margin-bottom:14px">Aantal kantoren per niveau</div>
+        <div style="position:relative;height:220px"><canvas id="chart-hrm"></canvas></div>
+      </div>
+      <div style="background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#132252;margin-bottom:4px">Acties status</div>
+        <div style="font-size:11px;color:#7a8fa8;margin-bottom:14px">Actie vereist vs geen actie</div>
+        <div style="position:relative;height:220px"><canvas id="chart-acties"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Row 3: EBITDA ranges + Groei vs Onderpresteerder -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div style="background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#132252;margin-bottom:4px">EBITDA verdeling</div>
+        <div style="font-size:11px;color:#7a8fa8;margin-bottom:14px">Aantal kantoren per EBITDA-band</div>
+        <div style="position:relative;height:220px"><canvas id="chart-ebitda-bands"></canvas></div>
+      </div>
+      <div style="background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#132252;margin-bottom:4px">Finance vs EBITDA</div>
+        <div style="font-size:11px;color:#7a8fa8;margin-bottom:14px">Gemiddelde EBITDA per Finance classificatie</div>
+        <div style="position:relative;height:220px"><canvas id="chart-finance-ebitda"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Top & Bottom performers table -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px">&#9650; Top 5 EBITDA</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px" id="tbl-top5">
+          <thead><tr>
+            <th style="text-align:left;padding:6px 8px;color:#7a8fa8;font-weight:500;border-bottom:1px solid #edf1f7">Kantoor</th>
+            <th style="text-align:right;padding:6px 8px;color:#7a8fa8;font-weight:500;border-bottom:1px solid #edf1f7">EBITDA</th>
+            <th style="text-align:left;padding:6px 8px;color:#7a8fa8;font-weight:500;border-bottom:1px solid #edf1f7">Finance</th>
+          </tr></thead>
+          <tbody id="top5-body"></tbody>
+        </table>
+      </div>
+      <div style="background:#fff;border:1px solid #dce3ed;border-radius:10px;padding:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:600;color:#e05a3a;margin-bottom:12px">&#9660; Bottom 5 EBITDA</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px" id="tbl-bot5">
+          <thead><tr>
+            <th style="text-align:left;padding:6px 8px;color:#7a8fa8;font-weight:500;border-bottom:1px solid #edf1f7">Kantoor</th>
+            <th style="text-align:right;padding:6px 8px;color:#7a8fa8;font-weight:500;border-bottom:1px solid #edf1f7">EBITDA</th>
+            <th style="text-align:left;padding:6px 8px;color:#7a8fa8;font-weight:500;border-bottom:1px solid #edf1f7">Finance</th>
+          </tr></thead>
+          <tbody id="bot5-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
 
   <!-- HANDLEIDING TAB -->
   <div id="tab-handleiding" style="display:none">
@@ -312,6 +404,107 @@ tr:last-child td{border-bottom:none}
         </tr></thead>
         <tbody id="log-body"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- MODAL NIEUW KANTOOR -->
+  <div id="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(19,34,82,.45);z-index:1000;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:14px;padding:28px;width:640px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.18)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:17px;font-weight:600;color:#132252">+ Nieuw kantoor toevoegen</div>
+        <button onclick="closeNieuwKantoor()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#7a8fa8;line-height:1">&#10005;</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <div style="grid-column:1/-1">
+          <label style="font-size:11px;color:#7a8fa8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Kantoor naam *</label>
+          <input id="nk-kantoor" type="text" placeholder="bijv. ABC Adviseurs" style="width:100%;padding:8px 10px;border:1px solid #dce3ed;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#7a8fa8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">ETL nummer</label>
+          <input id="nk-etl" type="text" placeholder="bijv. 3783" style="width:100%;padding:8px 10px;border:1px solid #dce3ed;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
+        </div>
+        <div>
+          <label style="font-size:11px;color:#7a8fa8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">EBITDA %</label>
+          <input id="nk-ebitda" type="number" step="0.1" placeholder="bijv. 18.5" style="width:100%;padding:8px 10px;border:1px solid #dce3ed;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
+        <div>
+          <label style="font-size:11px;color:#7a8fa8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Finance</label>
+          <select id="nk-finance" style="width:100%;padding:8px 10px;border:1px solid #dce3ed;border-radius:7px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;color:#1a2535;background:#fff">
+            <option value="">— selecteer —</option>
+            <option>1. Onderpresteerder</option>
+            <option>2. Generiek kantoor</option>
+            <option>3. Onstabiele presteerder</option>
+            <option>4. Traditioneel kantoor</option>
+            <option>5. Professioneel kantoor</option>
+            <option>6. Startend kantoor</option>
+            <option>7. Groei kantoor</option>
+            <option>8. Top kantoor</option>
+            <option>9. Vooroplopend innovatief kantoor</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#7a8fa8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">IT</label>
+          <select id="nk-it" style="width:100%;padding:8px 10px;border:1px solid #dce3ed;border-radius:7px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;color:#1a2535;background:#fff">
+            <option value="">— selecteer —</option>
+            <option>1. Onderpresteerder</option>
+            <option>2. Generiek kantoor</option>
+            <option>3. Onstabiele presteerder</option>
+            <option>4. Traditioneel kantoor</option>
+            <option>5. Professioneel kantoor</option>
+            <option>6. Startend kantoor</option>
+            <option>7. Groei kantoor</option>
+            <option>8. Top kantoor</option>
+            <option>9. Vooroplopend innovatief kantoor</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;color:#7a8fa8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">HRM</label>
+          <select id="nk-hrm" style="width:100%;padding:8px 10px;border:1px solid #dce3ed;border-radius:7px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;color:#1a2535;background:#fff">
+            <option value="">— selecteer —</option>
+            <option>1. Onderpresteerder</option>
+            <option>2. Generiek kantoor</option>
+            <option>3. Onstabiele presteerder</option>
+            <option>4. Traditioneel kantoor</option>
+            <option>5. Professioneel kantoor</option>
+            <option>6. Startend kantoor</option>
+            <option>7. Groei kantoor</option>
+            <option>8. Top kantoor</option>
+            <option>9. Vooroplopend innovatief kantoor</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:#7a8fa8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Conclusies</label>
+        <textarea id="nk-conclusies" rows="3" placeholder="Vul conclusies in..." style="width:100%;padding:8px 10px;border:1px solid #dce3ed;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;resize:vertical"></textarea>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <label style="font-size:11px;color:#7a8fa8;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px">Acties</label>
+        <textarea id="nk-acties" rows="3" placeholder="Vul acties in..." style="width:100%;padding:8px 10px;border:1px solid #dce3ed;border-radius:7px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;resize:vertical"></textarea>
+        <div style="margin-top:8px;display:flex;gap:10px;align-items:center">
+          <label style="font-size:12px;color:#1a2535;font-weight:500">Acties kleur:</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="radio" name="nk-kleur" id="nk-grijs" value="grijs" checked>
+            <span style="background:#D9D9D9;color:#3a3a3a;padding:2px 10px;border-radius:10px;font-size:11px">Grijs — geen urgente actie</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px">
+            <input type="radio" name="nk-kleur" id="nk-oranje" value="oranje">
+            <span style="background:#FABF8F;color:#6b3000;padding:2px 10px;border-radius:10px;font-size:11px">&#9650; Oranje — actie vereist</span>
+          </label>
+        </div>
+      </div>
+
+      <div id="nk-fout" style="display:none;background:#fde8e8;color:#8b1a1a;padding:10px 14px;border-radius:7px;font-size:12px;margin-bottom:14px"></div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="closeNieuwKantoor()" style="font-family:'DM Sans',sans-serif;padding:9px 20px;border-radius:8px;border:1px solid #dce3ed;background:#fff;color:#7a8fa8;cursor:pointer;font-size:13px">Annuleren</button>
+        <button onclick="saveNieuwKantoor()" style="font-family:'DM Sans',sans-serif;padding:9px 24px;border-radius:8px;border:none;background:#132252;color:#fff;cursor:pointer;font-size:13px;font-weight:500">Kantoor toevoegen</button>
+      </div>
     </div>
   </div>
 </div>
@@ -536,13 +729,285 @@ function switchTab(t) {
   tabs[0].classList.toggle('active', t === 'kantoren');
   tabs[1].classList.toggle('active', t === 'log');
   tabs[2].classList.toggle('active', t === 'handleiding');
+  tabs[3].classList.toggle('active', t === 'dashboard');
   document.getElementById('tab-kantoren').style.display = t === 'kantoren' ? '' : 'none';
   document.getElementById('tab-log').style.display = t === 'log' ? '' : 'none';
   document.getElementById('tab-handleiding').style.display = t === 'handleiding' ? '' : 'none';
+  document.getElementById('tab-dashboard').style.display = t === 'dashboard' ? '' : 'none';
+  if (t === 'dashboard') buildDashboard();
 }
 
 loadLocal();
 render();
+
+var dashCharts = {};
+
+function destroyChart(id) {
+  if (dashCharts[id]) { dashCharts[id].destroy(); delete dashCharts[id]; }
+}
+
+function classShort(val) {
+  if (!val) return 'Onbekend';
+  var m = val.match(/^(\d+)\.?\s*(.*)/);
+  if (m) return m[1] + '. ' + (m[2] || '').substring(0,18);
+  return val.substring(0,20);
+}
+
+function classNum(val) {
+  if (!val) return 0;
+  var m = val.match(/^(\d+)/);
+  return m ? parseInt(m[1]) : 0;
+}
+
+function colorForClass(n) {
+  if (n === 1) return '#f87171';
+  if (n <= 3) return '#fbbf24';
+  if (n <= 5) return '#60a5fa';
+  if (n <= 7) return '#4ade80';
+  return '#16a34a';
+}
+
+function buildDashboard() {
+  var withEbitda = data.filter(function(r){ return r.ebitda !== null && r.ebitda !== undefined; });
+  var avg = withEbitda.length ? withEbitda.reduce(function(a,b){ return a + b.ebitda; },0) / withEbitda.length : 0;
+
+  document.getElementById('dk-total').textContent = data.length;
+  document.getElementById('dk-ebitda').textContent = (avg*100).toFixed(1) + '%';
+  document.getElementById('dk-oranje').textContent = data.filter(function(r){ return r.actie_kleur === 'oranje'; }).length;
+  document.getElementById('dk-under').textContent = data.filter(function(r){ return r.finance && r.finance.indexOf('1.') === 0; }).length;
+  document.getElementById('dk-top').textContent = data.filter(function(r){ return r.finance && (r.finance.indexOf('8.') === 0 || r.finance.indexOf('9.') === 0); }).length;
+  document.getElementById('dk-neg').textContent = withEbitda.filter(function(r){ return r.ebitda < 0; }).length;
+
+  // --- Chart 1: EBITDA bar sorted ---
+  var sorted = withEbitda.slice().sort(function(a,b){ return b.ebitda - a.ebitda; });
+  var ebitdaLabels = sorted.map(function(r){ return r.kantoor.length > 14 ? r.kantoor.substring(0,13)+'…' : r.kantoor; });
+  var ebitdaVals = sorted.map(function(r){ return Math.round(r.ebitda * 1000) / 10; });
+  var ebitdaColors = ebitdaVals.map(function(v){ return v < 0 ? '#f87171' : v > 30 ? '#4ade80' : '#60a5fa'; });
+
+  destroyChart('ebitda');
+  dashCharts['ebitda'] = new Chart(document.getElementById('chart-ebitda'), {
+    type: 'bar',
+    data: { labels: ebitdaLabels, datasets: [{ data: ebitdaVals, backgroundColor: ebitdaColors, borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return c.raw + '%'; } } } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { ticks: { callback: function(v){ return v + '%'; }, font: { size: 10 } }, grid: { color: '#f0f0f0' } }
+      }
+    }
+  });
+
+  // --- Chart 2: Finance donut ---
+  var finCount = {};
+  data.forEach(function(r){ if(r.finance){ var k = classShort(r.finance); finCount[k] = (finCount[k]||0)+1; } });
+  var finLabels = Object.keys(finCount);
+  var finVals = finLabels.map(function(k){ return finCount[k]; });
+  var finColors = finLabels.map(function(l){ return colorForClass(parseInt(l.split('.')[0])||0); });
+
+  destroyChart('finance-donut');
+  dashCharts['finance-donut'] = new Chart(document.getElementById('chart-finance-donut'), {
+    type: 'doughnut',
+    data: { labels: finLabels, datasets: [{ data: finVals, backgroundColor: finColors, borderWidth: 2, borderColor: '#fff' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } } }
+    }
+  });
+
+  // --- Chart 3: IT bar ---
+  var itCount = [0,0,0,0,0,0,0,0,0,0];
+  data.forEach(function(r){ var n = classNum(r.it); if(n>=1&&n<=9) itCount[n]++; });
+  var itLabels = ['1','2','3','4','5','6','7','8','9'];
+  var itVals = itLabels.map(function(l){ return itCount[parseInt(l)]; });
+
+  destroyChart('it');
+  dashCharts['it'] = new Chart(document.getElementById('chart-it'), {
+    type: 'bar',
+    data: { labels: itLabels, datasets: [{ label: 'IT', data: itVals, backgroundColor: itLabels.map(function(l){ return colorForClass(parseInt(l)); }), borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { ticks: { font:{size:11} } }, y: { ticks: { stepSize:1, font:{size:10} }, grid:{color:'#f0f0f0'} } }
+    }
+  });
+
+  // --- Chart 4: HRM bar ---
+  var hrmCount = [0,0,0,0,0,0,0,0,0,0];
+  data.forEach(function(r){ var n = classNum(r.hrm); if(n>=1&&n<=9) hrmCount[n]++; });
+  var hrmVals = itLabels.map(function(l){ return hrmCount[parseInt(l)]; });
+
+  destroyChart('hrm');
+  dashCharts['hrm'] = new Chart(document.getElementById('chart-hrm'), {
+    type: 'bar',
+    data: { labels: itLabels, datasets: [{ label: 'HRM', data: hrmVals, backgroundColor: itLabels.map(function(l){ return colorForClass(parseInt(l)); }), borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { ticks: { font:{size:11} } }, y: { ticks: { stepSize:1, font:{size:10} }, grid:{color:'#f0f0f0'} } }
+    }
+  });
+
+  // --- Chart 5: Acties donut ---
+  var nOranje = data.filter(function(r){ return r.actie_kleur === 'oranje'; }).length;
+  var nGrijs = data.length - nOranje;
+
+  destroyChart('acties');
+  dashCharts['acties'] = new Chart(document.getElementById('chart-acties'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Actie vereist', 'Geen urgente actie'],
+      datasets: [{ data: [nOranje, nGrijs], backgroundColor: ['#FABF8F','#D9D9D9'], borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { font:{size:11}, padding:10 } } }
+    }
+  });
+
+  // --- Chart 6: EBITDA bands ---
+  var bands = { 'Negatief': 0, '0-10%': 0, '10-20%': 0, '20-30%': 0, '30-40%': 0, '40%+': 0 };
+  withEbitda.forEach(function(r){
+    var v = r.ebitda * 100;
+    if (v < 0) bands['Negatief']++;
+    else if (v < 10) bands['0-10%']++;
+    else if (v < 20) bands['10-20%']++;
+    else if (v < 30) bands['20-30%']++;
+    else if (v < 40) bands['30-40%']++;
+    else bands['40%+']++;
+  });
+  var bandColors = ['#f87171','#fbbf24','#60a5fa','#60a5fa','#4ade80','#16a34a'];
+
+  destroyChart('ebitda-bands');
+  dashCharts['ebitda-bands'] = new Chart(document.getElementById('chart-ebitda-bands'), {
+    type: 'bar',
+    data: { labels: Object.keys(bands), datasets: [{ data: Object.values(bands), backgroundColor: bandColors, borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { ticks: { font:{size:11} } }, y: { ticks: { stepSize:1, font:{size:10} }, grid:{color:'#f0f0f0'} } }
+    }
+  });
+
+  // --- Chart 7: Finance avg EBITDA ---
+  var finEbitda = {};
+  var finEbitdaCount = {};
+  data.forEach(function(r){
+    if (r.finance && r.ebitda !== null && r.ebitda !== undefined) {
+      var k = classShort(r.finance);
+      finEbitda[k] = (finEbitda[k]||0) + r.ebitda;
+      finEbitdaCount[k] = (finEbitdaCount[k]||0) + 1;
+    }
+  });
+  var feLabels = Object.keys(finEbitda).sort(function(a,b){ return parseInt(a)-parseInt(b); });
+  var feVals = feLabels.map(function(k){ return Math.round(finEbitda[k]/finEbitdaCount[k]*1000)/10; });
+  var feColors = feLabels.map(function(l){ return colorForClass(parseInt(l.split('.')[0])||0); });
+
+  destroyChart('finance-ebitda');
+  dashCharts['finance-ebitda'] = new Chart(document.getElementById('chart-finance-ebitda'), {
+    type: 'bar',
+    data: { labels: feLabels, datasets: [{ data: feVals, backgroundColor: feColors, borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c){ return c.raw + '%'; } } } },
+      scales: {
+        x: { ticks: { font:{size:10}, maxRotation: 30 } },
+        y: { ticks: { callback: function(v){ return v+'%'; }, font:{size:10} }, grid:{color:'#f0f0f0'} }
+      }
+    }
+  });
+
+  // --- Top 5 / Bottom 5 ---
+  var ranked = withEbitda.slice().sort(function(a,b){ return b.ebitda - a.ebitda; });
+  var top5 = ranked.slice(0, 5);
+  var bot5 = ranked.slice(-5).reverse();
+
+  function tableRows(list, colorFn) {
+    return list.map(function(r){
+      var pct = (r.ebitda*100).toFixed(1) + '%';
+      var col = r.ebitda < 0 ? '#e05a3a' : r.ebitda > 0.3 ? '#16a34a' : '#132252';
+      var c = classColors(r.finance);
+      return '<tr><td style="padding:7px 8px;border-bottom:1px solid #f0f4f8;color:#132252;font-weight:500">' + r.kantoor + '</td>'
+        + '<td style="padding:7px 8px;border-bottom:1px solid #f0f4f8;text-align:right;font-weight:600;color:'+col+'">' + pct + '</td>'
+        + '<td style="padding:7px 8px;border-bottom:1px solid #f0f4f8"><span style="background:'+c[0]+';color:'+c[1]+';padding:2px 8px;border-radius:10px;font-size:10px">' + (r.finance||'—') + '</span></td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  document.getElementById('top5-body').innerHTML = tableRows(top5);
+  document.getElementById('bot5-body').innerHTML = tableRows(bot5);
+}
+
+
+function openNieuwKantoor() {
+  document.getElementById('modal-overlay').style.display = 'flex';
+  document.getElementById('nk-kantoor').focus();
+}
+
+function closeNieuwKantoor() {
+  document.getElementById('modal-overlay').style.display = 'none';
+  // reset form
+  ['nk-kantoor','nk-etl','nk-ebitda','nk-finance','nk-it','nk-hrm','nk-conclusies','nk-acties'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('nk-grijs').checked = true;
+  document.getElementById('nk-fout').style.display = 'none';
+}
+
+function saveNieuwKantoor() {
+  var kantoor = document.getElementById('nk-kantoor').value.trim();
+  if (!kantoor) {
+    var fout = document.getElementById('nk-fout');
+    fout.textContent = 'Vul minimaal de naam van het kantoor in.';
+    fout.style.display = 'block';
+    return;
+  }
+  document.getElementById('nk-fout').style.display = 'none';
+
+  var ebitdaRaw = document.getElementById('nk-ebitda').value.trim();
+  var ebitda = ebitdaRaw !== '' ? parseFloat(ebitdaRaw) / 100 : null;
+  var kleur = document.querySelector('input[name="nk-kleur"]:checked').value;
+
+  var nieuw = {
+    id: data.length > 0 ? Math.max.apply(null, data.map(function(r){ return r.id; })) + 1 : 0,
+    etl: document.getElementById('nk-etl').value.trim(),
+    kantoor: kantoor,
+    ebitda: ebitda,
+    finance: document.getElementById('nk-finance').value,
+    it: document.getElementById('nk-it').value,
+    hrm: document.getElementById('nk-hrm').value,
+    conclusies: document.getElementById('nk-conclusies').value.trim(),
+    acties: document.getElementById('nk-acties').value.trim(),
+    actie_kleur: kleur
+  };
+
+  data.push(nieuw);
+
+  changelog.unshift({
+    ts: new Date().toLocaleString('nl-NL'),
+    kantoor: kantoor,
+    veld: 'nieuw kantoor',
+    oud: '',
+    nieuw: 'Kantoor toegevoegd'
+  });
+
+  saveLocal();
+  closeNieuwKantoor();
+  render();
+
+  // scroll to bottom to show new row
+  setTimeout(function() {
+    var tbody = document.getElementById('tbl-body');
+    if (tbody) tbody.lastElementChild && tbody.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
+// close modal on overlay click
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeNieuwKantoor();
+});
+
 </script>
 </body>
 </html>
